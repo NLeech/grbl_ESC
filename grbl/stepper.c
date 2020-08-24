@@ -384,7 +384,6 @@ ISR(TIMER1_COMPA_vect)
         st.steps[Z_AXIS] = st.exec_block->steps[Z_AXIS] >> st.exec_segment->amass_level;
       #endif
 
-      
       #ifdef VARIABLE_SPINDLE
         // Set real-time spindle output as segment is loaded, just prior to the first step.
         spindle_set_speed(st.exec_segment->spindle_pwm);
@@ -395,17 +394,7 @@ ISR(TIMER1_COMPA_vect)
       st_go_idle();
       #ifdef VARIABLE_SPINDLE
         // Ensure pwm is set properly upon completion of rate-controlled motion.
-        if (st.exec_block->is_pwm_rate_adjusted) 
-        {
-            if (SpindleUsingESC)
-            {
-                spindle_set_speed(ESC_SPINDLE_PWM_MIN);
-            }
-            else 
-            {
-                spindle_set_speed(SPINDLE_PWM_OFF_VALUE); 
-            }
-        }
+        if (st.exec_block->is_pwm_rate_adjusted) { spindle_set_speed(SPINDLE_PWM_OFF_VALUE); }
       #endif
       system_set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end
       return; // Nothing to do but exit.
@@ -976,18 +965,10 @@ void st_prep_buffer()
           prep.current_spindle_pwm = spindle_compute_pwm_value(rpm);
         } else { 
           sys.spindle_speed = 0.0;
-          if (SpindleUsingESC)
-          {
-              prep.current_spindle_pwm = ESC_SPINDLE_PWM_MIN;
-          }
-          else 
-          {
-              prep.current_spindle_pwm = SPINDLE_PWM_OFF_VALUE;
-          }
+          prep.current_spindle_pwm = SPINDLE_PWM_OFF_VALUE;
         }
         bit_false(sys.step_control,STEP_CONTROL_UPDATE_SPINDLE_PWM);
       }
-      
       prep_segment->spindle_pwm = prep.current_spindle_pwm; // Reload segment PWM value
 
     #endif
