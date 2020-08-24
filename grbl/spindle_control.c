@@ -368,7 +368,12 @@ void esc_pwm_change(uint8_t pwm)
        PwmStep = 1; //mininum step increase should at least be 1, must not be 0.
     }
     const uint16_t StepDelayMs = 200;
+    int16_t temp_pwm = 0; // use int16 so we don't overflow and it could be negative
+    uint8_t setPwm = 0;
+    if (pwm > SPINDLE_CURRENT_ESC_PWM)
     {   
+        // this is for speeding up
+        do
         {
            temp_pwm = PwmStep + SPINDLE_CURRENT_ESC_PWM;
            if (temp_pwm > pwm)
@@ -467,6 +472,10 @@ void esc_pwm_change(uint8_t pwm)
         } // if (SpindleUsingESC)
         else // the regular PWM motor path, not using ESC.
         {
+            spindle_set_speed(spindle_compute_pwm_value(rpm));
+        } // if (SpindleUsingESC)
+        
+   #endif
     #if (defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && \
         !defined(SPINDLE_ENABLE_OFF_WITH_ZERO_SPEED)) || !defined(VARIABLE_SPINDLE)
       // NOTE: Without variable spindle, the enable bit should just turn on or off, regardless
