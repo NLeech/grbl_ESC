@@ -653,6 +653,23 @@ void report_realtime_status()
   report_util_line_feed();
 }
 
+#ifdef DebugESC
+void report_data_value_uint8(const char* data, uint8_t value)
+{
+    printPgmString( data);
+    printPgmString(PSTR(" "));
+    print_uint8_base10(value);
+    printPgmString(PSTR("\r\n"));
+}
+
+void report_data_value_float(const char* data, float value)
+{
+    printPgmString(data);
+    printPgmString(PSTR(" "));
+    printFloat(value,2);
+    printPgmString(PSTR("\r\n"));
+}
+#endif
 
 #ifdef DEBUG
   void report_realtime_debug()

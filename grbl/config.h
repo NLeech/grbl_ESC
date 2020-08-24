@@ -103,8 +103,9 @@
 // will not be affected by pin sharing.
 // NOTE: Defaults are set for a traditional 3-axis CNC machine. Z-axis first to clear, followed by X & Y.
 #define HOMING_CYCLE_0 (1<<Z_AXIS)                // REQUIRED: First move Z to clear workspace.
-#define HOMING_CYCLE_1 ((1<<X_AXIS)|(1<<Y_AXIS))  // OPTIONAL: Then move X,Y at the same time.
-// #define HOMING_CYCLE_2                         // OPTIONAL: Uncomment and add axes mask to enable
+//#define HOMING_CYCLE_1 ((1<<X_AXIS)|(1<<Y_AXIS))  // OPTIONAL: Then move X,Y at the same time.
+#define HOMING_CYCLE_1 (1<<X_AXIS) 
+#define HOMING_CYCLE_2 (1<<Y_AXIS)
 
 // NOTE: The following are two examples to setup homing for 2-axis machines.
 // #define HOMING_CYCLE_0 ((1<<X_AXIS)|(1<<Y_AXIS))  // NOT COMPATIBLE WITH COREXY: Homes both X-Y in one cycle. 
@@ -186,7 +187,8 @@
 // defined at (http://corexy.com/theory.html). Motors are assumed to positioned and wired exactly as
 // described, if not, motions may move in strange directions. Grbl requires the CoreXY A and B motors
 // have the same steps per mm internally.
-// #define COREXY // Default disabled. Uncomment to enable.
+// Default disabled. Uncomment to enable.
+#define COREXY 
 
 // Inverts pin logic of the control command pins based on a mask. This essentially means you can use
 // normally-closed switches on the specified pins, rather than the default normally-open switches.
@@ -358,6 +360,51 @@
 // a programmer (you can use a spare Arduino as "Arduino as ISP". Search the web on how to wire this.),
 // this D13 LED toggling should go away. We haven't tested this though. Please report how it goes!
 // #define USE_SPINDLE_DIR_AS_ENABLE_PIN // Default disabled. Uncomment to enable.
+
+// 
+// For Spindle controlled by ESC, brushed or brushless RC hobby motor/esc. ==========
+
+// uncomment to print debug info to serial, consumes a lot memory
+//#define DebugESC
+#define SpindleUsingESC true
+ // make it float so not lose precision
+ 
+ // #define ESC_SPINDLE_PWM_ONTIMEUS_MIN_US 1460.0f  for Brushed Car ESC, less then this, is brake and reverse
+#define ESC_SPINDLE_PWM_ONTIMEUS_MIN_US 1000.0f  // for Brushless Drone ESC 30A
+//#define ESC_SPINDLE_PWM_ONTIMEUS_MIN_US 1500.0f  // for hobby Car ESC, brushed and Brushless. less then 1.5ms is brake and reverse.
+// make it float so not lose precision
+#define ESC_SPINDLE_PWM_ONTIMEUS_MAX_US 2020.0f // make it slightly larger than 2000us (2.0ms) , working well
+// 60Hz, hobbywind brushed ESC 60A works, from 1.5ms to 2.0ms, 
+// but there are only 9 PWM output levels(which on time falls in 1.5ms to 2.0ms range), 
+// because 60Hz is too slow ( one period is 1000ms/60hz=16ms, too long, and only 1.5ms to 2.0ms is valid, 
+// range is too small) it may not be good enough!
+// #define ESC_PWM_FREQ 60  
+
+// 244HZ, no name black 30A drone Brushless ESC works.
+// Surpass Hobby RC car 45A Brushless platinum white ESC works. 
+// 244 is the best choice, seems most brushless ESC support it. and we have 60+ levels of PWM output
+// 1000ms/244hz=4ms  1ms to 2ms (drone brushless ESC works from 1ms), there are 60+ levels pwm in that range
+// For Car Brushless ESC, from 1.5ms to 2.0ms, there are 30 levels of pwm in the valid range (1.5ms to 2.0ms)
+//  PWM=62	period=4.098ms	on time=1.00ms   pwm=24.3%	
+//      93         4.098            1.49         36.5%	
+//     125         4.098            2.01         49.0%	
+// must work with #define SPINDLE_TCCRB_INIT_MASK_244HZ in cpu_map.h
+#define ESC_PWM_FREQ 244   
+//#define ESC_PWM_FREQ 488 // some esc may not work, too fast
+
+// for 244hz, it's about 4098us
+#define ESC_PWM_CYCLE_TIME_US (1000.0f/ESC_PWM_FREQ * 1000.0f)
+
+// arduino pin 11 PWM 0-255.
+#define ARDUINO_PWM_MAX 255
+
+// the minimum valid PWM for ESC, when it's 244hz, from 1ms, this is 62PWM
+#define ESC_SPINDLE_PWM_MIN (uint8_t) ( ESC_SPINDLE_PWM_ONTIMEUS_MIN_US * ARDUINO_PWM_MAX / ESC_PWM_CYCLE_TIME_US )
+
+// the maximum valid PWM for ESC, when it's 244hz, 2ms on time is 124PWM
+#define ESC_SPINDLE_PWM_MAX (uint8_t) ( ESC_SPINDLE_PWM_ONTIMEUS_MAX_US * ARDUINO_PWM_MAX / ESC_PWM_CYCLE_TIME_US )
+// End of ESC ===========================================================
+
 
 // Alters the behavior of the spindle enable pin with the USE_SPINDLE_DIR_AS_ENABLE_PIN option . By default,
 // Grbl will not disable the enable pin if spindle speed is zero and M3/4 is active, but still sets the PWM 

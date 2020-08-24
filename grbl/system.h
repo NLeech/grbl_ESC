@@ -146,6 +146,9 @@ typedef struct {
   #endif
   #ifdef VARIABLE_SPINDLE
     float spindle_speed;
+#ifdef SpindleUsingESC
+    #define SPINDLE_CURRENT_ESC_PWM SPINDLE_OCR_REGISTER
+#endif
   #endif
 } system_t;
 extern system_t sys;
