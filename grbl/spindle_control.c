@@ -508,7 +508,7 @@ void esc_pwm_change(uint8_t pwm)
         } // if (settings.esc_type)
         else // the regular PWM motor path, not using ESC.
         {
-            spindle_set_speed(spindle_compute_pwm_value(rpm));
+           spindle_set_speed(spindle_compute_pwm_value(rpm));
         } // end of if (settings.esc_type)
         
    #endif
