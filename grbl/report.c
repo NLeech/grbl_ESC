@@ -205,6 +205,7 @@ void report_grbl_settings() {
   report_util_float_setting(31,settings.rpm_min,N_DECIMAL_RPMVALUE);
   #ifdef VARIABLE_SPINDLE
     report_util_uint8_setting(32,bit_istrue(settings.flags,BITFLAG_LASER_MODE));
+    report_util_uint8_setting(SETTING_ESC_TYPE, settings.esc_type);
   #else
     report_util_uint8_setting(32,0);
   #endif

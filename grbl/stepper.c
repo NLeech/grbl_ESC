@@ -397,14 +397,15 @@ ISR(TIMER1_COMPA_vect)
         // Ensure pwm is set properly upon completion of rate-controlled motion.
         if (st.exec_block->is_pwm_rate_adjusted) 
         {
-            if (SpindleUsingESC)
+            if (settings.esc_type)
             {
-                spindle_set_speed(ESC_SPINDLE_PWM_MIN);
+               spindle_set_speed(sys.esc_spindle_pwm_min);
             }
-            else 
+            else
             {
-                spindle_set_speed(SPINDLE_PWM_OFF_VALUE); 
+               spindle_set_speed(SPINDLE_PWM_OFF_VALUE);
             }
+             
         }
       #endif
       system_set_exec_state_flag(EXEC_CYCLE_STOP); // Flag main program for cycle end
@@ -976,9 +977,9 @@ void st_prep_buffer()
           prep.current_spindle_pwm = spindle_compute_pwm_value(rpm);
         } else { 
           sys.spindle_speed = 0.0;
-          if (SpindleUsingESC)
+          if (settings.esc_type)
           {
-              prep.current_spindle_pwm = ESC_SPINDLE_PWM_MIN;
+              prep.current_spindle_pwm = sys.esc_spindle_pwm_min;
           }
           else 
           {

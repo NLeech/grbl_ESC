@@ -27,7 +27,7 @@
 
 // Version of the EEPROM data. Will be used to migrate existing data from older versions of Grbl
 // when firmware is upgraded. Always stored in byte 0 of eeprom
-#define SETTINGS_VERSION 10  // NOTE: Check settings_reset() when moving to next version.
+#define SETTINGS_VERSION 11  // NOTE: Check settings_reset() when moving to next version.
 
 // Define bit flag masks for the boolean settings in settings.flag.
 #define BIT_REPORT_INCHES      0
@@ -110,6 +110,12 @@ typedef struct {
   float homing_seek_rate;
   uint16_t homing_debounce_delay;
   float homing_pulloff;
+
+  // esc_type = 0, disable esc, use regular motor the old way;
+  // 1: esc pwm starts from 1ms. For most drone brushless esc.
+  // 2: pwm starts from 1.5ms. For most hobby rc car brushless and brushed esc.
+  uint8_t esc_type;
+
 } settings_t;
 extern settings_t settings;
 
@@ -149,5 +155,52 @@ uint8_t get_direction_pin_mask(uint8_t i);
 // Returns the limit pin mask according to Grbl's internal axis numbering
 uint8_t get_limit_pin_mask(uint8_t i);
 
+#ifdef VARIABLE_SPINDLE
+
+  // For Brushed and brushless ESC
+  // make it float so not lose precision
+  // #define ESC_SPINDLE_PWM_ONTIMEUS_MIN_US 1460.0f  for Brushed Car ESC, less then this, is brake and reverse
+  #define ESC_SPINDLE_PWM_ONTIMEUS_FROM_1000US 1000.0f  // for Brushless Drone ESC
+  #define ESC_SPINDLE_PWM_ONTIMEUS_FROM_1500US 1500.0f  // for hobby Car ESC, brushed and Brushless. less then 1.5ms is brake and reverse.
+  // make it float so not lose precision
+  #define ESC_SPINDLE_PWM_ONTIMEUS_MAX_US 2020.0f // make it slightly larger than 2000us (2.0ms) , working well
+  // 60Hz, hobbywind brushed ESC 60A works, from 1.5ms to 2.0ms, 
+  // but there are only 9 PWM output levels(which on time falls in 1.5ms to 2.0ms range), 
+  // because 60Hz is too slow ( one period is 1000ms/60hz=16ms, too long, and only 1.5ms to 2.0ms is valid, 
+  // range is too small) it may not be good enough!
+
+  // 244HZ, no name black 30A drone Brushless ESC works.
+  // Surpass Hobby RC car 45A Brushless platinum white ESC works. 
+  // 244 is the best choice, seems most brushless ESC support it. and we have 60+ levels of PWM output
+  // 1000ms/244hz=4ms  1ms to 2ms (drone brushless ESC works from 1ms), there are 60+ levels pwm in that range
+  // For Car Brushless ESC, from 1.5ms to 2.0ms, there are 30 levels of pwm in the valid range (1.5ms to 2.0ms)
+  //  PWM=62	period=4.098ms	on time=1.00ms   pwm=24.3%	
+  //      93         4.098            1.49         36.5%	
+  //     125         4.098            2.01         49.0%	
+
+ 
+  // for 244hz, it's about 4098us
+  #define ESC_PWM_CYCLE_TIME_US (1000.0f/ESC_PWM_FREQ * 1000.0f)
+
+
+  // the minimum valid PWM for ESC, when it's 244hz, from 1ms, this is 62PWM
+  // #define ESC_SPINDLE_PWM_MIN (uint8_t) ( ESC_SPINDLE_PWM_ONTIMEUS_MIN_US * ARDUINO_PWM_MAX / ESC_PWM_CYCLE_TIME_US )
+
+  // the maximum valid PWM for ESC, when it's 244hz, 2ms on time is 124PWM
+  #define ESC_SPINDLE_PWM_MAX (uint8_t) ( ESC_SPINDLE_PWM_ONTIMEUS_MAX_US * ARDUINO_PWM_MAX / ESC_PWM_CYCLE_TIME_US )
+
+  // important, do not use other values, must use 0 for disable.
+  #define ESC_TYPE_SETTING_DISABLE 0
+  #define ESC_TYPE_SETTING_FROM_1000US 1
+  #define ESC_TYPE_SETTING_FROM_1500US 2
+
+  // arduino pin 11 PWM 0-255.
+  #define ARDUINO_PWM_MAX 255
+  // Using $39 setting for ESC
+  #define SETTING_ESC_TYPE 38
+#endif   // End of ESC ===============================================
+
 
 #endif
+
+

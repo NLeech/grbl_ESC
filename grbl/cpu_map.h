@@ -145,11 +145,25 @@
     // #define SPINDLE_TCCRB_INIT_MASK   (1<<CS21)               // 1/8 prescaler -> 7.8kHz (Used in v0.9)
     // #define SPINDLE_TCCRB_INIT_MASK   ((1<<CS21) | (1<<CS20)) // 1/32 prescaler -> 1.96kHz
     #define SPINDLE_TCCRB_INIT_MASK      (1<<CS22)               // 1/64 prescaler -> 0.98kHz (J-tech laser)
-    //#define SPINDLE_TCCRB_INIT_MASK_488HZ  ((1<<CS22)|(1<<CS20))  // 1/128 prescaler -> 488kHz
+    #define SPINDLE_TCCRB_INIT_MASK_488HZ  ((1<<CS22)|(1<<CS20))  // 1/128 prescaler -> 488kHz
     #define SPINDLE_TCCRB_INIT_MASK_244HZ  ((1<<CS22)|(1<<CS21))  // 1/256 prescaler -> 244kHz
-    //#define SPINDLE_TCCRB_INIT_MASK_60HZ  ((1<<CS22)|(1<<CS20)|(1<<CS21))  // 1/1024    prescaler -> 60HZ
+    #define SPINDLE_TCCRB_INIT_MASK_60HZ  ((1<<CS22)|(1<<CS20)|(1<<CS21))  // 1/1024    prescaler -> 60HZ
+
+#ifdef VARIABLE_SPINDLE
+
+  #ifdef ESC_PWM_FREQ_60HZ
+    #define ESC_PWM_FREQ 60
+    #define SPINDLE_TCCRB_INIT_MASK_FOR_FREQ SPINDLE_TCCRB_INIT_MASK_60HZ
     // https://sites.google.com/site/qeewiki/books/avr-guide/timers-on-the-atmega328
-    
+  #elif(ESC_PWM_FREQ_244HZ )
+    #define ESC_PWM_FREQ 244
+    #define SPINDLE_TCCRB_INIT_MASK_FOR_FREQ SPINDLE_TCCRB_INIT_MASK_244HZ
+  #elif( ESC_PWM_FREQ_488HZ )
+    #define ESC_PWM_FREQ 488    
+    #define SPINDLE_TCCRB_INIT_MASK_FOR_FREQ SPINDLE_TCCRB_INIT_MASK_488HZ
+  #endif
+
+#endif
 
     // NOTE: On the 328p, these must be the same as the SPINDLE_ENABLE settings.
     #define SPINDLE_PWM_DDR   DDRB

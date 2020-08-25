@@ -146,9 +146,16 @@ typedef struct {
   #endif
   #ifdef VARIABLE_SPINDLE
     float spindle_speed;
-#ifdef SpindleUsingESC
+
+    // the esc control signal pwm on time length, 
+    // could be from 1000us for drone esc or from 1500us for car esc
+    float esc_on_time_min_us;
+
+    // the pwm value for esc, motor is in stop/idle state.
+    uint8_t esc_spindle_pwm_min;
+
+    // the pin11's current pwm value
     #define SPINDLE_CURRENT_ESC_PWM SPINDLE_OCR_REGISTER
-#endif
   #endif
 } system_t;
 extern system_t sys;

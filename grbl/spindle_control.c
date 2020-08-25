@@ -26,24 +26,48 @@
   static float pwm_gradient; // Precalulated value to speed up rpm to PWM conversions.
 #endif
 
+#ifdef VARIABLE_SPINDLE
+
 // ESC must be inited and warm up after it's power on
 // after connection , ESC must run at a lower speed (warm up) for a little time first, 
 // before it can do high PWM high RPM output
 // this is a safety feature for many ESC, to prevent it from connected and immediatley run like crazy
-void initEsc(void)
+  
+void initEsc(uint8_t esctype)
 {
 #ifdef DebugESC
     //report_data_value_float(PSTR("ESC_PWM_CYCLE_TIME_US"), ESC_PWM_CYCLE_TIME_US);
     //report_data_value_uint8(PSTR("init ESC"), ESC_SPINDLE_PWM_MIN);
 #endif
-    spindle_set_speed(ESC_SPINDLE_PWM_MIN); // using min pwm signal to arm the esc
+    switch (esctype)
+    {
+    case ESC_TYPE_SETTING_DISABLE:
+        // esc_type = 0, we will not use ESC.
+        sys.esc_spindle_pwm_min = 0;
+        break;
+    case ESC_TYPE_SETTING_FROM_1000US:
+        sys.esc_on_time_min_us = ESC_SPINDLE_PWM_ONTIMEUS_FROM_1000US;
+        break;
+    case ESC_TYPE_SETTING_FROM_1500US:
+        sys.esc_on_time_min_us = ESC_SPINDLE_PWM_ONTIMEUS_FROM_1500US;
+        break;
+    default:
+        // invalid type, change it back to 0.
+        settings.esc_type = 0;
+        sys.esc_on_time_min_us = 0;
+        sys.esc_spindle_pwm_min = 0;
+        break;
+    }
+    sys.esc_spindle_pwm_min = (uint8_t)(sys.esc_on_time_min_us * ARDUINO_PWM_MAX / ESC_PWM_CYCLE_TIME_US);
+    //report_data_value_uint8(PSTR("esc_spindle_pwm_min:"), sys.esc_spindle_pwm_min);
+
+    spindle_set_speed(sys.esc_spindle_pwm_min); // using min pwm signal to init the esc
     
     SPINDLE_TCCRA_REGISTER |= (1 << SPINDLE_COMB_BIT); // Ensure PWM output is enabled.
 
     // must give some time  to ESC to establish connection with arduino
     delay_ms(800);
 }
-
 
 // min pwm on time :1000us = 1 ms   max pwm on time: 2000us = 2 ms
 uint8_t convertNormalPwmToEscPwm(uint8_t pwm)
@@ -55,7 +79,7 @@ uint8_t convertNormalPwmToEscPwm(uint8_t pwm)
     const uint8_t MinRegPWM = 1;
     if (pwm <= MinRegPWM)
     {
-        return ESC_SPINDLE_PWM_MIN;
+        return sys.esc_spindle_pwm_min;
     }
     else if (pwm >= (ARDUINO_PWM_MAX-1))
     {
@@ -65,7 +89,7 @@ uint8_t convertNormalPwmToEscPwm(uint8_t pwm)
 
     // cache last value use it next time.
     static uint8_t prev_pwm = 0;
-    static uint8_t prev_esc_pwm = ESC_SPINDLE_PWM_MIN;
+    static uint8_t prev_esc_pwm = 0;
     if (prev_pwm == pwm)
     {
         // this is the same input as last time, 
@@ -80,7 +104,7 @@ uint8_t convertNormalPwmToEscPwm(uint8_t pwm)
     float powerPercent = (pwm * 1.0f / ARDUINO_PWM_MAX);
     //Serial.println("inputPwmPercent " + String(powerPercent));
     // must use US not to loss data
-    int onTimeUs = round((ESC_SPINDLE_PWM_ONTIMEUS_MIN_US + ((ESC_SPINDLE_PWM_ONTIMEUS_MAX_US - ESC_SPINDLE_PWM_ONTIMEUS_MIN_US) * powerPercent)));
+    int onTimeUs = round((sys.esc_on_time_min_us + ((ESC_SPINDLE_PWM_ONTIMEUS_MAX_US - sys.esc_on_time_min_us) * powerPercent)));
     //Serial.println("PWM: " + String(pwm) + " to: " + String(onTimeUs) + " On time US");
     const unsigned int PwmCycleTimeUs = round(OneSec1000Ms * 1000.0 / ESC_PWM_FREQ); //one pwm cycle for 60hz is 1sec/60hz =16.6ms=16666us 
     //Serial.println("PwmCycleTimeUs " + String(PwmCycleTimeUs));
@@ -91,6 +115,7 @@ uint8_t convertNormalPwmToEscPwm(uint8_t pwm)
     prev_esc_pwm = escPWM;
     return escPWM;
 }
+#endif
 
 
 void spindle_init()
@@ -100,7 +125,8 @@ void spindle_init()
     // combined unless configured otherwise.
     SPINDLE_PWM_DDR |= (1<<SPINDLE_PWM_BIT); // Configure as PWM output pin.
     SPINDLE_TCCRA_REGISTER = SPINDLE_TCCRA_INIT_MASK; // Configure PWM output compare timer
-    if (SpindleUsingESC)
+
+    if (settings.esc_type)
     {
        // To support Brushed or Brushless Motor work with an external Brushed or Brushless ESC.
        // they use 50Hz PWM signal to control speed or angle. on period 1ms = min, 2ms=Max
@@ -109,14 +135,13 @@ void spindle_init()
        //SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK_60HZ;
        //SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK_244HZ;  // 244 is the best option
        //SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK_488HZ;
-       SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK_244HZ;
-       initEsc();
-    }
-    else
-    {
-       // default PWM 0% - 100% controlled motor.
+       SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK_FOR_FREQ;
+       initEsc(settings.esc_type);
+     } else {
+       // default PWM 0% - 100% controlled motor. 
        SPINDLE_TCCRB_REGISTER = SPINDLE_TCCRB_INIT_MASK;
-    }
+     }
+
     #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
       SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
     #else
@@ -180,30 +205,34 @@ uint8_t spindle_get_state()
 void spindle_stop()
 {
   #ifdef VARIABLE_SPINDLE
-   if (SpindleUsingESC)
-   {
-      // using ESC to control motor
-      // Freq is fixed 50HZ
-      // Min PWM 1MS (Stop), Max PWM 2MS
-      // using the min pwm for esc to stop ( 0 pwm just cause ESC problem )
-        #ifdef DebugESC
-         printPgmString(PSTR("stop\r\n"));
-        #endif
-      // this does a sudden brake when using ESC, need to avoid
-      // spindle_set_speed(ESC_SPINDLE_PWM_MIN);
-      // this does a slowly slow down.
-      esc_pwm_change(ESC_SPINDLE_PWM_MIN);
-      SPINDLE_ENABLE_PORT &= ~(1 << SPINDLE_ENABLE_BIT); // Set pin to low
-      return;
-   }
-    SPINDLE_TCCRA_REGISTER &= ~(1<<SPINDLE_COMB_BIT); // Disable PWM. Output voltage is zero.
-    #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
-      #ifdef INVERT_SPINDLE_ENABLE_PIN
-        SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);  // Set pin to high
-      #else
-        SPINDLE_ENABLE_PORT &= ~(1<<SPINDLE_ENABLE_BIT); // Set pin to low
-      #endif
-    #endif
+
+     if (settings.esc_type)
+     {
+       // using ESC to control motor
+       // Freq is fixed 50HZ
+       // Min PWM 1MS (Stop), Max PWM 2MS
+       // using the min pwm for esc to stop ( 0 pwm just cause ESC problem )
+         #ifdef DebugESC
+           printPgmString(PSTR("stop\r\n"));
+          #endif
+       // this does a sudden brake when using ESC, need to avoid
+       // spindle_set_speed(ESC_SPINDLE_PWM_MIN);
+       // this does a slowly slow down.
+       esc_pwm_change(sys.esc_spindle_pwm_min);
+       SPINDLE_ENABLE_PORT &= ~(1 << SPINDLE_ENABLE_BIT); // Set pin to low
+       return;
+     }
+     else
+     {
+       SPINDLE_TCCRA_REGISTER &= ~(1 << SPINDLE_COMB_BIT); // Disable PWM. Output voltage is zero.
+       #ifdef USE_SPINDLE_DIR_AS_ENABLE_PIN
+         #ifdef INVERT_SPINDLE_ENABLE_PIN
+            SPINDLE_ENABLE_PORT |= (1 << SPINDLE_ENABLE_BIT);  // Set pin to high
+         #else
+         SPINDLE_ENABLE_PORT &= ~(1 << SPINDLE_ENABLE_BIT); // Set pin to low
+         #endif
+       #endif
+     }
   #else
     #ifdef INVERT_SPINDLE_ENABLE_PIN
       SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);  // Set pin to high
@@ -221,7 +250,7 @@ void spindle_stop()
   {
     SPINDLE_OCR_REGISTER = pwm_value; // Set PWM output level.
     // do not disable PWM output when using ESC, it would be disconnected.
-    if(SpindleUsingESC)
+    if(settings.esc_type)
     {
        // pwm value has been set, return now
        return;
@@ -317,14 +346,14 @@ void spindle_stop()
         pwm_value = floor((rpm-settings.rpm_min)*pwm_gradient) + SPINDLE_PWM_MIN_VALUE;
     }
 
-    if (SpindleUsingESC)
+    if (settings.esc_type)
     {
         #ifdef DebugESC
-        //report_data_value_uint8(PSTR("converting pwm"), pwm_value);
+        report_data_value_uint8(PSTR("converting pwm"), pwm_value);
         #endif
         pwm_value = convertNormalPwmToEscPwm(pwm_value);
         #ifdef DebugESC
-        //report_data_value_uint8(PSTR("converted esc pwm"), pwm_value);
+        report_data_value_uint8(PSTR("converted esc pwm"), pwm_value);
         #endif
     }
     return(pwm_value);
@@ -333,7 +362,7 @@ void spindle_stop()
   #endif
 #endif
 
-#ifdef SpindleUsingESC
+#ifdef VARIABLE_SPINDLE
 // use it to "slowly" change the speed, could be speeding up or slow down
 // it's necessary to "slowly" to speed up because most ESC would reject a sudden jump from 0 to 255 pwm signal.
 // for slowing down, if we suddenly send a stop signal (1ms) when it's in high pwm output, 
@@ -349,9 +378,9 @@ void esc_pwm_change(uint8_t pwm)
       return;
     }
     // validate pwm value first
-    if (pwm < ESC_SPINDLE_PWM_MIN)
+    if (pwm < sys.esc_spindle_pwm_min)
     {
-       pwm = ESC_SPINDLE_PWM_MIN;
+       pwm = sys.esc_spindle_pwm_min;
     }
     else if (pwm > ESC_SPINDLE_PWM_MAX)
     {
@@ -361,13 +390,13 @@ void esc_pwm_change(uint8_t pwm)
       //report_data_value_uint8(PSTR("cur pwm"), SPINDLE_CURRENT_ESC_PWM);
     #endif
     // the final pwm is too large and it will cause the ESC disconnected,
-    const uint8_t MaxSteps = 10; // at most we use 6 steps to speed up the spindle from 0 to max pwm.
-    int16_t PwmStep = (ESC_SPINDLE_PWM_MAX - ESC_SPINDLE_PWM_MIN) / MaxSteps; //each step we increase / decrease pwm
+    const uint8_t MaxSteps = 20; // at most we use these steps to speed up the spindle from 0 to max pwm.
+    int16_t PwmStep = (ESC_SPINDLE_PWM_MAX - sys.esc_spindle_pwm_min) / MaxSteps; //each step we increase pwm
     if (PwmStep <= 0)
     {
        PwmStep = 1; //mininum step increase should at least be 1, must not be 0.
     }
-    const uint16_t StepDelayMs = 200;
+    const uint16_t StepDelayMs = 150;
     int16_t temp_pwm = 0; // use int16 so we don't overflow and it could be negative
     uint8_t setPwm = 0;
     if (pwm > SPINDLE_CURRENT_ESC_PWM)
@@ -379,12 +408,8 @@ void esc_pwm_change(uint8_t pwm)
            if (temp_pwm > pwm)
            {
               temp_pwm = pwm;
-           }            
-           //printPgmString(PSTR("temp_pwm"));
-           //print_uint32_base10(temp_pwm);
+           }
            setPwm = (uint8_t)(temp_pwm % 0x100);
-           //printPgmString(PSTR("setPwm"));
-           //print_uint32_base10(setPwm);
            #ifdef DebugESC
            report_data_value_uint8(PSTR("SetEsPm:"), setPwm);
            #endif
@@ -396,7 +421,11 @@ void esc_pwm_change(uint8_t pwm)
         } while (setPwm < pwm);
     }
     else // speed down
-    {    
+    {
+       // if the ESC brake function is disabled, none of these lines are necessary.
+       // it should slow down by itself, won't suddenly brake
+       
+       /* soft slow down, step by step
        do
        {
           temp_pwm = SPINDLE_CURRENT_ESC_PWM - PwmStep;
@@ -408,16 +437,23 @@ void esc_pwm_change(uint8_t pwm)
           #ifdef DebugESC
           report_data_value_uint8(PSTR("Setting down Esc Pwm:"), setPwm);
           #endif
+          // if we set pwm min when motor is still running in high speed, 
+          // it will cause a sudden break, pause more time to let it slow down
+          if (setPwm == sys.esc_spindle_pwm_min)
+          {
+              delay_ms(StepDelayMs);
+          }
             spindle_set_speed(setPwm);
           #ifdef DebugESC
             printPgmString(PSTR("delay1\n"));
           #endif
             delay_ms(StepDelayMs);
         } while (setPwm > pwm);
+        */
+        spindle_set_speed(pwm);
+
     } // end of if speed up else speed down
 } // end of void esc_pwm_change(uint8_t pwm)
-
-
 #endif
 
 // Immediately sets spindle running state with direction and spindle rpm via PWM, if enabled.
@@ -456,7 +492,7 @@ void esc_pwm_change(uint8_t pwm)
 
         // For ESC, must slowly increase the RPM for the first time after power up, 
         // must not do it from 0 to max just after power up
-        if (SpindleUsingESC)
+        if (settings.esc_type)
         {             
            #ifdef DebugESC
              report_data_value_float(PSTR("spindle_set_state"), rpm);
@@ -469,11 +505,11 @@ void esc_pwm_change(uint8_t pwm)
            #endif
            esc_pwm_change(esc_pwm);
             
-        } // if (SpindleUsingESC)
+        } // if (settings.esc_type)
         else // the regular PWM motor path, not using ESC.
         {
             spindle_set_speed(spindle_compute_pwm_value(rpm));
-        } // if (SpindleUsingESC)
+        } // end of if (settings.esc_type)
         
    #endif
     #if (defined(USE_SPINDLE_DIR_AS_ENABLE_PIN) && \
