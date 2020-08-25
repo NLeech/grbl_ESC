@@ -389,18 +389,19 @@ void esc_pwm_change(uint8_t pwm)
     #ifdef DebugESC
       //report_data_value_uint8(PSTR("cur pwm"), SPINDLE_CURRENT_ESC_PWM);
     #endif
-    // the final pwm is too large and it will cause the ESC disconnected,
-    const uint8_t MaxSteps = 20; // at most we use these steps to speed up the spindle from 0 to max pwm.
-    int16_t PwmStep = (ESC_SPINDLE_PWM_MAX - sys.esc_spindle_pwm_min) / MaxSteps; //each step we increase pwm
-    if (PwmStep <= 0)
-    {
-       PwmStep = 1; //mininum step increase should at least be 1, must not be 0.
-    }
-    const uint16_t StepDelayMs = 150;
+   
     int16_t temp_pwm = 0; // use int16 so we don't overflow and it could be negative
     uint8_t setPwm = 0;
     if (pwm > SPINDLE_CURRENT_ESC_PWM)
-    {   
+    {
+        const uint8_t MaxSteps = 20; // at most we use these steps to speed up the spindle from 0 to max pwm.
+        int16_t PwmStep = (ESC_SPINDLE_PWM_MAX - sys.esc_spindle_pwm_min) / MaxSteps; //each step we increase pwm
+        if (PwmStep <= 0)
+        {
+            PwmStep = 1; //mininum step increase should at least be 1, must not be 0.
+        }
+        const uint16_t StepDelayMs = 150;
+
         // this is for speeding up
         do
         {
@@ -422,37 +423,48 @@ void esc_pwm_change(uint8_t pwm)
     }
     else // speed down
     {
-       // if the ESC brake function is disabled, none of these lines are necessary.
-       // it should slow down by itself, won't suddenly brake
-       
-       /* soft slow down, step by step
+       const uint8_t MaxSteps = 5; // at most we use these steps to reduce the steps
+       int16_t perStepReducePwm = (ESC_SPINDLE_PWM_MAX - sys.esc_spindle_pwm_min) / MaxSteps; //each step we increase pwm
+       // making the step larger so it's more efficient when reducing speed at the beginning
+       if (perStepReducePwm <= 0)
+       {
+           perStepReducePwm = 1; //mininum step change should at least be 1, must not be 0.
+       }
+       const uint16_t StepDelayMs = 300;
+       // if we have ESC brake disabled then only do this:
+       // spindle_set_speed(setPwm);
+       // To reduce speed for efficiently and softly
+       // with the brake function, we have to slowly reduce the speed step by step
        do
        {
-          temp_pwm = SPINDLE_CURRENT_ESC_PWM - PwmStep;
+          temp_pwm = SPINDLE_CURRENT_ESC_PWM - perStepReducePwm;
           if (temp_pwm < pwm)
           {
+             // should not reudce more than asked
              temp_pwm = pwm;
           }
           setPwm = (uint8_t)(temp_pwm % 0x100);
           #ifdef DebugESC
           report_data_value_uint8(PSTR("Setting down Esc Pwm:"), setPwm);
           #endif
-          // if we set pwm min when motor is still running in high speed, 
-          // it will cause a sudden break, pause more time to let it slow down
-          if (setPwm == sys.esc_spindle_pwm_min)
+          if ( setPwm <= (sys.esc_spindle_pwm_min+10))
           {
+              // this will likely cause a brake
+              // delay more to reduce the impact
               delay_ms(StepDelayMs);
           }
-            spindle_set_speed(setPwm);
-          #ifdef DebugESC
-            printPgmString(PSTR("delay1\n"));
-          #endif
-            delay_ms(StepDelayMs);
-        } while (setPwm > pwm);
-        */
-        spindle_set_speed(pwm);
-
+          spindle_set_speed(setPwm);
+          perStepReducePwm--;
+          if (perStepReducePwm <= 0)
+          {
+             perStepReducePwm = 1; 
+             //mininum step change should at least be 1, must not be 0.
+             //or it will be endless loop.
+          }
+          delay_ms(StepDelayMs);
+       } while (setPwm > pwm);
     } // end of if speed up else speed down
+
 } // end of void esc_pwm_change(uint8_t pwm)
 #endif
 
