@@ -188,7 +188,7 @@
 // described, if not, motions may move in strange directions. Grbl requires the CoreXY A and B motors
 // have the same steps per mm internally.
 // Default disabled. Uncomment to enable.
-#define COREXY 
+#define COREXY
 
 // Inverts pin logic of the control command pins based on a mask. This essentially means you can use
 // normally-closed switches on the specified pins, rather than the default normally-open switches.
@@ -372,8 +372,8 @@
 
   // Only One of the these must be defined, but not all.
   //#define ESC_PWM_FREQ_60HZ 60    // all traditional ESC /servo support 60HZ signal, but output level is too little, just 9.
-  #define ESC_PWM_FREQ_244HZ 244  // 244HZ seems the best option. has 62 pwm power output level, not bad!
-  //#define ESC_PWM_FREQ_488HZ 488 // in theory it has 124 output level, but some esc may not work well, too fast?
+  //#define ESC_PWM_FREQ_244HZ 244  // 244HZ seems the best option. has 62 pwm power output level, not bad!
+  #define ESC_PWM_FREQ_488HZ 488 // in theory it has 124 output level, but some esc may not work well, too fast?
   // Only One of the these must be defined, but not all.
 #endif
 
