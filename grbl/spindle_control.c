@@ -423,46 +423,14 @@ void esc_pwm_change(uint8_t pwm)
     }
     else // speed down
     {
-       const uint8_t MaxSteps = 5; // at most we use these steps to reduce the steps
-       int16_t perStepReducePwm = (ESC_SPINDLE_PWM_MAX - sys.esc_spindle_pwm_min) / MaxSteps; //each step we increase pwm
-       // making the step larger so it's more efficient when reducing speed at the beginning
-       if (perStepReducePwm <= 0)
-       {
-           perStepReducePwm = 1; //mininum step change should at least be 1, must not be 0.
-       }
-       const uint16_t StepDelayMs = 300;
-       // if we have ESC brake disabled then only do this:
-       // spindle_set_speed(setPwm);
-       // To reduce speed for efficiently and softly
-       // with the brake function, we have to slowly reduce the speed step by step
-       do
-       {
-          temp_pwm = SPINDLE_CURRENT_ESC_PWM - perStepReducePwm;
-          if (temp_pwm < pwm)
-          {
-             // should not reudce more than asked
-             temp_pwm = pwm;
-          }
-          setPwm = (uint8_t)(temp_pwm % 0x100);
-          #ifdef DebugESC
-          report_data_value_uint8(PSTR("Setting down Esc Pwm:"), setPwm);
-          #endif
-          if ( setPwm <= (sys.esc_spindle_pwm_min+10))
-          {
-              // this will likely cause a brake
-              // delay more to reduce the impact
-              delay_ms(StepDelayMs);
-          }
-          spindle_set_speed(setPwm);
-          perStepReducePwm--;
-          if (perStepReducePwm <= 0)
-          {
-             perStepReducePwm = 1; 
-             //mininum step change should at least be 1, must not be 0.
-             //or it will be endless loop.
-          }
-          delay_ms(StepDelayMs);
-       } while (setPwm > pwm);
+       // when ESC's break is disabled (which it should be disabled), 
+       // we could stop the motor at once, no need to do it step by step. saving some code space.
+       // How to Enable or disable ESC break:
+       // 1 Disconnect ESC power (ie 12V).
+       // 2 Send PWM signal 255 (for example send command M3 S12000 ) to ESC
+       // 3 Power on ESC.  done. break is now Disabled ( or Enabled).
+       // 4 Do 1 to 3 again to toggle the break setting 
+       spindle_set_speed(pwm);
     } // end of if speed up else speed down
 
 } // end of void esc_pwm_change(uint8_t pwm)

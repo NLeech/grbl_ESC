@@ -442,6 +442,8 @@
 // values for certain setups have ranged from 5 to 20us.
 // #define STEP_PULSE_DELAY 10 // Step pulse delay in microseconds. Default disabled.
 
+#define STEPPER_IDLE_LOCK_TIME_LONG_DELAY 600 // for $1, delay longer time in ms when $1=254 to put stepper in complete stop.
+
 // The number of linear motions in the planner buffer to be planned at any give time. The vast
 // majority of RAM that Grbl uses is based on this buffer size. Only increase if there is extra
 // available RAM, like when re-compiling for a Mega2560. Or decrease if the Arduino begins to

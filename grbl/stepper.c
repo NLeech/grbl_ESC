@@ -256,10 +256,23 @@ void st_go_idle()
 
   // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
   bool pin_state = false; // Keep enabled.
-  if (((settings.stepper_idle_lock_time != 0xff) || sys_rt_exec_alarm || sys.state == STATE_SLEEP) && sys.state != STATE_HOMING) {
+  const uint8_t Forever = 0xff, LongDelaySetting = 254;
+  // should be long enough to stop the stepper motor so not to miss a step
+  const uint16_t StepperIdleLockTimeLongDelay = 600; 
+  if (((settings.stepper_idle_lock_time != Forever) || sys_rt_exec_alarm || sys.state == STATE_SLEEP) && sys.state != STATE_HOMING) {
     // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
     // stop and not drift from residual inertial forces at the end of the last movement.
-    delay_ms(settings.stepper_idle_lock_time);
+    
+    // 255 is forever, too long, but 254 is 254ms, too short, 
+    // making 254 to be longer (half second? one second? ), hopefully it's long enough to stop the stepper motor.
+    if( settings.stepper_idle_lock_time  == LongDelaySetting )
+    {
+        delay_ms(STEPPER_IDLE_LOCK_TIME_LONG_DELAY);
+
+    }else
+    {
+        delay_ms(settings.stepper_idle_lock_time);
+    }
     pin_state = true; // Override. Disable steppers.
   }
   if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
