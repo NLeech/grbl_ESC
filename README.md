@@ -1,3 +1,10 @@
+##### This branch added support for brushed /brushless ESC to GRBL.
+* checkout more on ESC connection and commands. https://github.com/ntchris/grbl/wiki
+* Download the special builds with ESC support  https://github.com/ntchris/grbl/releases
+
+
+
+
 ![GitHub Logo](https://github.com/gnea/gnea-Media/blob/master/Grbl%20Logo/Grbl%20Logo%20250px.png?raw=true)
 
 ***
