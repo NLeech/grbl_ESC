@@ -2,6 +2,53 @@
 * checkout more on ESC connection and commands. https://github.com/ntchris/grbl/wiki
 * Download the special builds with ESC support  https://github.com/ntchris/grbl/releases
 
+Adding support for brushless/brushed ESC controlled motor
+
+This release added support for brushless ESC, including brushed ESC and brushless ESC, hobby RC car ESC and drone ESC. The current ESC control signal is 244HZ, should be supported by most of the brushless drone ESC and brushless car ESC. Unfortunately many Brushed ESC do not support this high frequency, they only support 60HZ, so changing config.h file is necessary. the PWM pin is arduino Pin11, the motor PWM pin, if using the red CNC shield, it's the "Z Stop" pin.
+
+Added new system setting $38 for ESC type, default is 0. Just like changing any other setting, in serial interface, run $38= to set it:
+
+$38=0, to disable esc, using regular motor, as usual.
+
+$38=1, to use drone brushless ESC, meaning ESC control signal on time starts from 1ms. This also support brushed ESC, but currently I am using 244HZ for the ESC control signal, which is most likely too high for traditional brushed ESC. in that case you can modify the config file to use 60HZ setting.
+
+$38=2, to use RC hobby CAR brushless ESC, meaning ESC control signal on time starts from 1.5ms. (<1.5ms is for brake and reverse)
+
+features:
+
+Support ESC initialization (as a safety feature of the ESC, it must accept a sane signal first to start working properly.
+
+Support ESC soft start, "slowly" ramp up motor speed, this can prevent ESC from locking down ( it's also a ESC safety feature, it doesn't allow power output from 0 and suddenly jump to max).
+
+Support ESC soft stop, "slowly" slow down motor speed, this can prevent ESC from sudden brake when running at high speed, which has a big impact to the system. Suggest change the ESC firmware setting to disable the brake function to prevent ESC suddenly brake from 10000RPM to 0RPM.
+
+Changing ESC PWM signal frequency
+
+Currently the code is using 244HZ which is pretty good.
+
+In case you do need to use 60HZ for the ESC, modify config.h
+
+uncomment this line: //#define ESC_PWM_FREQ_60HZ 60
+
+comment out this line:  #define ESC_PWM_FREQ_244HZ 244
+
+However due to the slow frequency (60HZ) and longer period (1000ms/60=16.67ms) of the cycle , only a very small range of duty cycle from 1.5ms to 2.0ms is valid for the ESC in a long period of 16.6ms, so we don't have much of power level in this case, only 9.
+
+Or, if you want to use 488HZ,
+
+uncomment this line //#define ESC_PWM_FREQ_488HZ 488
+
+and must comment out 60 and 244 lines.
+
+Connecting ESC and Arduino / CNC Shield
+
+ESC signal cable has 3wires, signal, 5V, GND and two power wires.
+
+Connect ESC signal wire to the Arduino Pin11 or the famous little red CNC shield (which works with Arduino Uno) Z+ stop pin.
+
+5V : Ignore 5V (red or not available)
+
+Gnd : connect arduino Gnd.
 
 
 
